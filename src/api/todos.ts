@@ -7,14 +7,14 @@ export const getTodos = () => {
   return client.get<Todo[]>(`/todos?userId=${USER_ID}`);
 };
 
-export const postTodos = () => {
-  return client.post<Todo[]>(`/todos?userId=${USER_ID}`);
+export const postTodos = (data: Omit<Todo, 'id'>) => {
+  return client.post<Todo>(`/todos?userId=${USER_ID}`, data);
 };
 
 export const patchTodos = () => {
-  return client.patch<Todo[]>(`/todos?userId=${USER_ID}`);
+  return client.patchTodo<Todo[]>(`/todos?userId=${USER_ID}`);
 };
 
 export const deleteTodos = () => {
-  return client.delete<Todo[]>(`/todos?userId=${USER_ID}`);
+  return client.delete(`/todos?userId=${USER_ID}`);
 };

@@ -1,8 +1,8 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { UserWarning } from './UserWarning';
-import { getTodos, USER_ID } from './api/todos';
+import { getTodos, postTodos, USER_ID } from './api/todos';
 import { Todo } from './types/Todo';
 
 enum FilterStatus {
@@ -15,6 +15,17 @@ export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<FilterStatus>(FilterStatus.All);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmiting, setIsSubmiting] = useState(false);
+  const [tempTodo, setTempTodo] = useState<Todo | null>();
+  const [inputField, setInputField] = useState('');
+
+  const titileField = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (titileField.current) {
+      titileField.current.focus();
+    }
+  }, []);
 
   useEffect(() => {
     setErrorMessage(null);
@@ -82,6 +93,49 @@ export const App: React.FC = () => {
     },
   ];
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedTitle = inputField.trim();
+
+    if (!trimmedTitle) {
+      setErrorMessage('Title should not be empty');
+
+      return;
+    }
+
+    const temporaryTodo: Todo = {
+      id: 0,
+      userId: USER_ID,
+      title: trimmedTitle,
+      completed: false,
+    };
+
+    try {
+      setIsSubmiting(true);
+      setErrorMessage('');
+      setTempTodo(temporaryTodo);
+      const createdTodo = await postTodos({
+        userId: USER_ID,
+        title: trimmedTitle,
+        completed: false,
+      });
+
+      setIsSubmiting(false);
+      setTodos(prevTodo => [...prevTodo, createdTodo]);
+      setInputField('');
+      setTempTodo(null);
+    } catch (error) {
+      setErrorMessage('Unable to add todo');
+      setTempTodo(null);
+    } finally {
+      setIsSubmiting(false);
+      setTempTodo(null);
+      setTimeout(() => {
+        titileField.current?.focus();
+      }, 0);
+    }
+  };
+
   return (
     <div className="todoapp">
       <h1 className="todoapp__title">todos</h1>
@@ -94,12 +148,18 @@ export const App: React.FC = () => {
             data-cy="ToggleAllButton"
           />
 
-          <form>
+          <form onSubmit={handleSubmit}>
             <input
               data-cy="NewTodoField"
               type="text"
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
+              ref={titileField}
+              value={inputField}
+              disabled={isSubmiting}
+              onChange={event => {
+                setInputField(event.target.value);
+              }}
             />
           </form>
         </header>
@@ -153,6 +213,35 @@ export const App: React.FC = () => {
               </div>
             </div>
           ))}
+          {tempTodo && (
+            <div data-cy="Todo" className="todo">
+              <label className="todo__status-label">
+                <input
+                  data-cy="TodoStatus"
+                  type="checkbox"
+                  className="todo__status"
+                  disabled
+                />
+              </label>
+
+              <span data-cy="TodoTitle" className="todo__title">
+                {tempTodo.title}
+              </span>
+
+              <button
+                type="button"
+                className="todo__remove"
+                data-cy="TodoDelete"
+              >
+                ×
+              </button>
+
+              <div data-cy="TodoLoader" className="modal overlay is-active">
+                <div className="modal-background has-background-white-ter" />
+                <div className="loader" />
+              </div>
+            </div>
+          )}
         </section>
 
         {todos.length > 0 && (
