@@ -2,7 +2,7 @@
 /* eslint-disable jsx-a11y/control-has-associated-label */
 import React, { useEffect, useRef, useState } from 'react';
 import { UserWarning } from './UserWarning';
-import { getTodos, postTodos, USER_ID } from './api/todos';
+import { deleteTodos, getTodos, postTodos, USER_ID } from './api/todos';
 import { Todo } from './types/Todo';
 
 enum FilterStatus {
@@ -136,6 +136,61 @@ export const App: React.FC = () => {
     }
   };
 
+  function deleteTodo(todoId: number) {
+    try {
+      setIsSubmiting(true);
+      deleteTodos(todoId).then(() => {
+        setTodos(currentTodos =>
+          currentTodos.filter(todo => todoId !== todo.id),
+        );
+      });
+    } catch (error) {
+      setErrorMessage('Unable to delete a todo');
+    }
+  }
+
+  async function deleteCompletedTodo() {
+    const completedTodo = todos.filter(todo => todo.completed);
+    const completedIds = completedTodo.map(todo => todo.id);
+
+    if (completedTodo.length === 0) {
+      return;
+    }
+
+    const deletePromises = completedTodo.map(todo => deleteTodos(todo.id));
+
+    try {
+      const results = await Promise.allSettled(deletePromises);
+      const failedIds: number[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          failedIds.push(completedIds[index]);
+        }
+      });
+
+      setTodos(currentTodos =>
+        currentTodos.filter(todo => {
+          if (!completedIds.includes(todo.id)) {
+            return true;
+          }
+
+          if (failedIds.includes(todo.id)) {
+            return true;
+          }
+
+          return false;
+        }),
+      );
+
+      if (failedIds.length > 0) {
+        setErrorMessage('Unable to delete some todos');
+      }
+    } catch (error) {
+      setErrorMessage('An error occurred while deleting tasks');
+    }
+  }
+
   return (
     <div className="todoapp">
       <h1 className="todoapp__title">todos</h1>
@@ -200,6 +255,9 @@ export const App: React.FC = () => {
                 type="button"
                 className="todo__remove"
                 data-cy="TodoDelete"
+                onClick={() => {
+                  deleteTodo(todo.id);
+                }}
               >
                 ×
               </button>
@@ -269,6 +327,7 @@ export const App: React.FC = () => {
               className="todoapp__clear-completed"
               data-cy="ClearCompletedButton"
               disabled={!hasCompleted}
+              onClick={deleteCompletedTodo}
             >
               Clear completed
             </button>
